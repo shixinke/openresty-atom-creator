@@ -1,14 +1,13 @@
-var request = require('request')
-var parser = require('cheerio')
-var path = require('path')
-var fs = require('fs')
+var request = require('request');
+var parser = require('cheerio');
+var path = require('path');
+var fs = require('fs');
 
 const selectorConfig = {
     directive:'#user-content-directives',
     api:'#user-content-nginx-api-for-lua'
 
 };
-//类库映射
 const urlsMap = {
     'lua-resty-memcached':'https://github.com/openresty/lua-resty-memcached',
     'lua-resty-mysql':'https://github.com/openresty/lua-resty-mysql',
@@ -37,7 +36,7 @@ function curl(url, callback)
             console.log(url);
             console.log('request error:'+err);
         }
-        var $ = parser.load(body);
+        let $ = parser.load(body);
         callback($);
     })
 }
@@ -88,13 +87,40 @@ function createDirectiveAndApi() {
                 let href = $(this).find('a').attr('href');
                 let id = href.replace('#', '');
                 let item = $('#user-content-'+id);
-                let syntax = item.parent('h2').next('p').find('em').text();
+                let parent = item.parent('h2');
+                let syntax = parent.next('p').find('em').text();
 
-                let obj = {
-                    prefix : $(this).text(),
-                    body : syntax
-                };
-                configMap.api.push(obj);
+                if (syntax != '') {
+                    let prefix = $(this).text();
+
+                    if (prefix.substr(-9) == 'constants') {
+                        let wrapper = parent.next('p').next('.highlight');
+                        if (wrapper.length == 0) {
+                            wrapper = parent.next('p').next('pre');
+                        }
+                        let content = wrapper.text().trim();
+                        let arr = content.split("\n");
+                        if (arr.length > 0) {
+                            for (let row in arr) {
+                                let item = arr[row].trim();
+                                let tmp = item.split('(')
+                                let obj = {
+                                    prefix : tmp[0].trim(),
+                                    body : tmp[0].trim()
+                                };
+                                configMap.api.push(obj);
+                            }
+                        }
+                    } else {
+                        let obj = {
+                            prefix : prefix,
+                            body : syntax
+                        };
+                        configMap.api.push(obj);
+                    }
+
+                }
+
             });
         }
         if (configMap.directive.length > 0) {
@@ -133,7 +159,7 @@ function createLib() {
                         prefix : parent.text(),
                         body : body
                     };
-                    if (body.substring(0, 6) != 'syntax') {
+                    if (body.substr(0, 6) == 'syntax') {
                         obj.body = obj.prefix;
                     }
 
@@ -158,9 +184,9 @@ function createLib() {
 /**
  * 生成指令和API
  */
-//createDirectiveAndApi();
+createDirectiveAndApi();
 
 /**
  * 生成类库
  */
-createLib();
+//createLib();
