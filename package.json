@@ -1,7 +1,7 @@
 {
   "name": "openresty-atom-creator",
   "version": "1.0.0",
-  "description": "",
+  "description": "create atom snippets for openresty",
   "main": "creator.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

@@ -8,6 +8,7 @@ const selectorConfig = {
     api:'#user-content-nginx-api-for-lua'
 
 };
+//类库映射
 const urlsMap = {
     'lua-resty-memcached':'https://github.com/openresty/lua-resty-memcached',
     'lua-resty-mysql':'https://github.com/openresty/lua-resty-mysql',
