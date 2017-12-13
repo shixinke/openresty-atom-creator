@@ -18,8 +18,18 @@ const urlsMap = {
     'lua-resty-lock':'https://github.com/openresty/lua-resty-lock',
     'lua-resty-logger-socket':'https://github.com/cloudflare/lua-resty-logger-socket',
     'lua-resty-lrucache':'https://github.com/openresty/lua-resty-lrucache',
-    'lua-resty-string':'https://github.com/openresty/lua-resty-string'
+    'lua-resty-string':'https://github.com/openresty/lua-resty-string',
+    'lua-resty-balancer':'https://github.com/openresty/lua-resty-balancer',
+    'lua-upstream-nginx-module':'https://github.com/openresty/lua-upstream-nginx-module',
+    'lua-tablepool':'https://github.com/openresty/lua-tablepool',
+    'lua-resty-upstream-healthcheck':'https://github.com/openresty/lua-resty-upstream-healthcheck',
+    'lua-resty-limit-req':'https://github.com/openresty/lua-resty-limit-traffic/blob/master/lib/resty/limit/req.md',
+    'lua-resty-limit-count':'https://github.com/openresty/lua-resty-limit-traffic/blob/master/lib/resty/limit/count.md',
+    'lua-resty-limit-conn':'https://github.com/openresty/lua-resty-limit-traffic/blob/master/lib/resty/limit/conn.md',
+    'lua-resty-limit-traffic':'https://github.com/openresty/lua-resty-limit-traffic/blob/master/lib/resty/limit/traffic.md'
+
 };
+const cjsonUrl = 'https://www.kyne.com.au/~mark/software/lua-cjson-manual.html';
 
 const indexUrl = 'https://github.com/openresty/lua-nginx-module';
 const outputDir = './data/cson';
@@ -58,6 +68,19 @@ function writeFile(filename, content) {
             console.log("写文件失败: " + err);
         }
     });
+}
+
+function createFile(filename, contentMap) {
+    if (contentMap.length > 0) {
+        let content = "'source.lua':\n";
+        for (let i in contentMap) {
+            let obj = contentMap[i];
+            content += "  '"+obj.prefix.trim()+"':\n";
+            content += "    'prefix':'"+obj.prefix.trim()+"'\n";
+            content += "    'body':'"+obj.body.trim()+"'\n";
+        }
+        writeFile(outputDir+'/'+filename+'.cson', content);
+    }
 }
 
 
@@ -123,26 +146,8 @@ function createDirectiveAndApi() {
 
             });
         }
-        if (configMap.directive.length > 0) {
-            let content = "'source.lua':\n";
-            for (let i in configMap.directive) {
-                let obj = configMap.directive[i];
-                content += "  '"+obj.prefix+"'\n";
-                content += "    'prefix':'"+obj.prefix+"'\n";
-                content += "    'body':'"+obj.body+"'\n";
-            }
-            writeFile(outputDir+'/ngx_lua_directive.cson', content);
-        }
-        if (configMap.directive.length > 0) {
-            let content = "'source.lua':\n";
-            for (let i in configMap.api) {
-                let obj = configMap.api[i];
-                content += "  '"+obj.prefix+"'\n";
-                content += "    'prefix':'"+obj.prefix+"'\n";
-                content += "    'body':'"+obj.body+"'\n";
-            }
-            writeFile(outputDir+'/ngx_lua_api.cson', content);
-        }
+        createFile('ngx_lua_directive', configMap.directive);
+        createFile('ngx_lua_api', configMap.api);
     })
 }
 
@@ -150,37 +155,57 @@ function createDirectiveAndApi() {
 function createLib() {
     for (let key in urlsMap) {
         curl(urlsMap[key], function($){
-            let libMap = [];
+            let moduleName = key.replace(/-/g, '.').replace('lua.', '');
+            let nameArr = key.split('-');
+            let shortName = nameArr[nameArr.length -1];
+            let libMap = [{prefix:'require '+moduleName, body:'local '+shortName+' = require "'+moduleName+'"'}];
             $('h2 a.anchor').each(function(){
                 let parent = $(this).parent('h2');
                 let body = parent.next('p').find('code').text();
                 if (body.length > 0) {
                     let obj = {
-                        prefix : parent.text(),
-                        body : body
+                        prefix : parent.text().trim(),
+                        body : body.trim()
                     };
-                    if (body.substr(0, 6) == 'syntax') {
+                    if (body.substr(0, 6) != 'syntax') {
                         obj.body = obj.prefix;
+                    } else {
+                        obj.body = obj.body.replace('syntax', '').trim();
+                        let bodyArr = obj.body.split('=');
+                        if (bodyArr.length > 1) {
+                            let tmpArr = bodyArr[1].split('(');
+                            obj.prefix = tmpArr[0].trim();
+                        }
+
                     }
 
                     libMap.push(obj);
                 }
 
             });
-            if (libMap.length > 0) {
-                let content = "'source.lua':\n";
-                for (let i in libMap) {
-                    let obj = libMap[i];
-                    content += "  '"+obj.prefix+"'\n";
-                    content += "    'prefix':'"+obj.prefix+"'\n";
-                    content += "    'body':'"+obj.body+"'\n";
-                }
-                writeFile(outputDir+'/'+key.replace(/-/g, '_')+'.cson', content);
-            }
+            createFile(key.replace(/-/g, '_'), libMap);
         });
     }
 }
 
+
+function createCjson() {
+    curl(cjsonUrl, function($){
+        let content = $('.listingblock').first().text();
+        let arr = content.split("\n");
+        let cjsonArr = [];
+        for (let i = 0; i< arr.length; i++) {
+            if (arr[i].length > 0 && arr[i].substring(0,2) != '--') {
+                let obj = {
+                    prefix : arr[i],
+                    body:arr[i]
+                };
+                cjsonArr.push(obj);
+            }
+        }
+        createFile('ngx_lua_cjson', cjsonArr);
+    });
+}
 /**
  * 生成指令和API
  */
@@ -189,4 +214,9 @@ createDirectiveAndApi();
 /**
  * 生成类库
  */
-//createLib();
+createLib();
+
+/**
+ * 生成CJSON类
+ */
+createCjson();
